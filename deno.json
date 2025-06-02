@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "convert": "deno run -A src/convert.ts",
+    "group": "deno run -A src/group-emails.ts",
+    "senders": "deno run -A src/group-by-sender.ts",
+    "llm": "deno run -A src/create-llm-files.ts"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1"
+  }
+}
