@@ -437,7 +437,7 @@ class MarkdownGenerator {
     return `${String(index + 1).padStart(4, '0')}-${dateStr}-${subject || 'no-subject'}.md`;
   }
 
-  private parseDate(dateStr: string): Date | null {
+  parseDate(dateStr: string): Date | null {
     if (!dateStr) return null;
 
     try {
@@ -519,31 +519,40 @@ ${emails
 // Main execution
 async function main() {
   const args = parseArgs(Deno.args, {
-    string: ['input', 'output'],
+    string: ['input', 'output', 'since-date', 'until-date'],
     alias: {
       i: 'input',
       o: 'output',
+      d: 'since-date',
+      u: 'until-date',
       h: 'help'
     }
   });
 
   if (args.help || !args.input) {
     console.log(`
-Usage: deno run --allow-read --allow-write mbox-to-markdown.ts -i <mbox-file> -o <output-dir>
+Usage: deno run --allow-read --allow-write mbox-to-markdown.ts -i <mbox-file> -o <output-dir> [options]
 
 Options:
-  -i, --input   Path to the mbox file
-  -o, --output  Output directory for markdown files (default: ./emails-md)
-  -h, --help    Show this help message
+  -i, --input       Path to the mbox file
+  -o, --output      Output directory for markdown files (default: ./output/emails)
+  -d, --since-date  Only include emails on or after this date (YYYY-MM-DD format)
+  -u, --until-date  Only include emails before this date (YYYY-MM-DD format)
+  -h, --help        Show this help message
 
-Example:
+Examples:
   deno run --allow-read --allow-write mbox-to-markdown.ts -i ./my-emails.mbox -o ./email-markdown
+  deno run --allow-read --allow-write mbox-to-markdown.ts -i ./my-emails.mbox --since-date 2023-01-01
+  deno run --allow-read --allow-write mbox-to-markdown.ts -i ./my-emails.mbox --until-date 2023-12-31
+  deno run --allow-read --allow-write mbox-to-markdown.ts -i ./my-emails.mbox --since-date 2023-01-01 --until-date 2023-12-31
 `);
 Deno.exit(0);
 }
 
 const inputFile = args.input;
-const outputDir = "./output/emails";
+const outputDir = args.output || "./output/emails";
+const sinceDateStr = args["since-date"];
+const untilDateStr = args["until-date"];
 
 try {
   // Check if input file exists
@@ -551,11 +560,60 @@ try {
   console.log(`Input file size: ${(fileInfo.size / 1024 / 1024).toFixed(2)} MB`);
 
   const parser = new MboxParser();
-  const emails = await parser.parseFile(inputFile);
+  let emails = await parser.parseFile(inputFile);
+  
+  const generator = new MarkdownGenerator();
+  let originalCount = emails.length;
+  
+  // Filter emails by date if a since-date is provided
+  if (sinceDateStr) {
+    try {
+      const sinceDate = new Date(sinceDateStr);
+      
+      if (isNaN(sinceDate.getTime())) {
+        throw new Error(`Invalid date format: ${sinceDateStr}. Please use YYYY-MM-DD format.`);
+      }
+      
+      console.log(`Filtering emails on or after ${sinceDateStr}`);
+      
+      emails = emails.filter(email => {
+        const emailDate = generator.parseDate(email.date);
+        return emailDate && emailDate >= sinceDate;
+      });
+      
+      console.log(`Filtered from ${originalCount} to ${emails.length} emails`);
+      originalCount = emails.length; // Update count for potential until-date filter
+    } catch (error) {
+      console.error(`Error parsing date filter: ${error instanceof Error ? error.message : String(error)}`);
+      Deno.exit(1);
+    }
+  }
+  
+  // Filter emails by date if an until-date is provided
+  if (untilDateStr) {
+    try {
+      const untilDate = new Date(untilDateStr);
+      
+      if (isNaN(untilDate.getTime())) {
+        throw new Error(`Invalid date format: ${untilDateStr}. Please use YYYY-MM-DD format.`);
+      }
+      
+      console.log(`Filtering emails before ${untilDateStr}`);
+      
+      emails = emails.filter(email => {
+        const emailDate = generator.parseDate(email.date);
+        return emailDate && emailDate < untilDate;
+      });
+      
+      console.log(`Filtered from ${originalCount} to ${emails.length} emails`);
+    } catch (error) {
+      console.error(`Error parsing date filter: ${error instanceof Error ? error.message : String(error)}`);
+      Deno.exit(1);
+    }
+  }
 
     console.log(`Successfully parsed ${emails.length} emails`);
 
-    const generator = new MarkdownGenerator();
     await generator.saveEmailsAsMarkdown(emails, outputDir);
 
     console.log(`✅ Done! Saved ${emails.length} emails as markdown files in ${outputDir}`);

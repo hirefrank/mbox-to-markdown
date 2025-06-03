@@ -57,11 +57,26 @@ To parse emails from an mbox file:
 deno task convert -i your-mail.mbox
 ```
 
+You can also filter emails by date using the `--since-date` and/or `--until-date` options:
+
+```bash
+deno task convert -i your-mail.mbox --since-date 2023-01-01
+deno task convert -i your-mail.mbox --until-date 2023-12-31
+deno task convert -i your-mail.mbox --since-date 2023-01-01 --until-date 2023-12-31
+```
+
 This will:
 1. Parse the mbox file
 2. Extract email metadata
-3. Save each email as a separate markdown file in the `output/emails` directory
-4. Create an index file at `output/emails/INDEX.md`
+3. Filter emails to only include those on or after the specified date
+4. Save each email as a separate markdown file in the `output/emails` directory
+5. Create an index file at `output/emails/INDEX.md`
+
+Options:
+- `-i, --input <file>`: Path to the mbox file (required)
+- `-o, --output <dir>`: Output directory for markdown files (default: `./output/emails`)
+- `-d, --since-date <YYYY-MM-DD>`: Only include emails on or after this date
+- `-u, --until-date <YYYY-MM-DD>`: Only include emails before this date
 
 ### Grouping Similar Emails
 
